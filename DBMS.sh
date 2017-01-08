@@ -60,39 +60,112 @@ manageDb(){
             read -r line
 
             case $line in
-                1) ManageDbTables $name ;;
+                1) manageDbTables $name ;;
                 2) dropDb $name;;
                 3) break ;;
             esac
         done
 
     else
-        firMessage "The Database Is Not Exists"
+        firMessage "Database does not exists"
     fi
 }
 
 createTable(){
+    clear
+    echo "Table Name :"
+    read name
+    dbname=$1
 
+    tableDataPath="$PWD/$dbname/$name.data"
+    tableMetaPath="$PWD/$dbname/$name.meta"
+
+    if [ -f $tableDataPath ]
+    then
+        firMessage "Table $name Already Exists in $dbname"
+        break
+    else
+        if touch $tableDataPath && touch $tableMetaPath
+        then
+            manageTable $dbname $name
+        fi
+    fi
 }
 
-ManageDbTables(){
+dropTable(){
+    clear
+    dbName=$1;
+    tableName=$2
+
+    tableDataPath="$PWD/$dbName/$tableName.data"
+    tableMetaPath="$PWD/$dbName/$tableName.meta"
+
+    echo "Drop $tableName from $dbName? (y/n)"
+    read confirm
+
+    if [ $confirm = "y" ]
+    then
+        if [ -f $tableDataPath -a  -f $tableMetaPath ] && rm $tableDataPath && rm $tableMetaPath
+        then
+            firMessage "Dropped Successfully"
+            break
+        else
+            firMessage "Dropping Error"
+        fi
+    fi
+}
+
+manageTable(){
+    clear
+    db=$1
+    table=$2
+    tableData="$PWD/$db/$table.data"
+    if [ -f $tableData ]
+    then
+        while true
+        do
+            clear
+            echo "Table $table Selected"
+            echo "1. Manage Data"
+            echo "2. Manage Structure"
+            echo "3. Drop Table"
+            echo "4. Back"
+
+            read -r line
+
+            case $line in
+                1) ManageDbTables $name ;;
+                3) dropTable $db $table;;
+                4) break ;;
+            esac
+        done
+
+    else
+        firMessage "Table Does Not Exists"
+    fi
+}
+
+manageDbTables(){
     if [ $1 ]; then
-        name=$1
+        dbName=$1
      else
         echo "Database Name ?: "
-        read name
+        read dbName
     fi
-    dbpath=$PWD/$name
+    dbpath=$PWD/$dbName
     if [ -d $dbpath ]
     then
         while true
         do
             clear
 
-            echo "Database $name Tables"
+            echo "Database $dbName Tables"
 
             echo "------"
-            echo "- Table Name Test"
+                for table in `find $dbpath/ -name "*.data" -printf %f`
+                do
+                    echo $table
+                done
             echo "------"
 
             echo "1. Create Table"
@@ -102,11 +175,11 @@ ManageDbTables(){
             read -r line
 
             case $line in
-                1) createTable $name ;;
+                1) createTable $dbName ;;
                 2)
                     echo "Enter Table Name"
-                    read -r tablename
-                    ManageTable $tablename
+                    read -r tableName
+                    manageTable $dbName $tableName
                 ;;
                 3) break ;;
             esac
