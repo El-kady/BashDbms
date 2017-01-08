@@ -38,10 +38,11 @@ dropDb(){
 
 manageDb(){
     clear
-    echo "Database Name ?: "
+
     if [ $1 ]; then
         name=$1
      else
+        echo "Database Name ?: "
         read name
     fi
 
@@ -52,20 +53,62 @@ manageDb(){
         do
             clear
             echo "Database $name Selected"
-            echo "1. Browse"
-            echo "3. Drop"
-            echo "6. Back"
+            echo "1. Manage Tables"
+            echo "2. Drop Database"
+            echo "3. Back"
 
             read -r line
 
             case $line in
-                1) echo Browse ;;
-                3) dropDb $name;;
-                6) break ;;
-                *)
-                    echo Choise
-                    echo $line
+                1) ManageDbTables $name ;;
+                2) dropDb $name;;
+                3) break ;;
+            esac
+        done
+
+    else
+        firMessage "The Database Is Not Exists"
+    fi
+}
+
+createTable(){
+
+}
+
+ManageDbTables(){
+    if [ $1 ]; then
+        name=$1
+     else
+        echo "Database Name ?: "
+        read name
+    fi
+    dbpath=$PWD/$name
+    if [ -d $dbpath ]
+    then
+        while true
+        do
+            clear
+
+            echo "Database $name Tables"
+
+            echo "------"
+            echo "- Table Name Test"
+            echo "------"
+
+            echo "1. Create Table"
+            echo "2. Manage Tables"
+            echo "3. Back"
+
+            read -r line
+
+            case $line in
+                1) createTable $name ;;
+                2)
+                    echo "Enter Table Name"
+                    read -r tablename
+                    ManageTable $tablename
                 ;;
+                3) break ;;
             esac
         done
 
