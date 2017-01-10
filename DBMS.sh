@@ -162,14 +162,14 @@ manageDbTables(){
             echo "Database $dbName Tables"
 
             echo "------"
-                for table in `find $dbpath/ -name "*.data" -printf %f`
+                for table in `find $dbpath/ -name "*.data" -printf "%f\n" | cut -d. -f1`
                 do
-                    echo $table
+                    echo "- $table"
                 done
             echo "------"
 
-            echo "1. Create Table"
-            echo "2. Manage Tables"
+            echo "1. Create A New"
+            echo "2. Manage A Table"
             echo "3. Back"
 
             read -r line
