@@ -148,6 +148,38 @@ createField(){
     fi
 }
 
+dropField(){
+
+    db=$1
+    table=$2
+    tableData="$PWD/$db/$table.data"
+    tableMeta="$PWD/$db/$table.meta"
+
+    echo "Enter Field Name :"
+    read -r name
+
+    if [ -f $tableMeta ]
+    then
+        if cat $tableMeta | grep $name
+        then
+            clear
+            echo "Drop $name from $table? (y/n)"
+            read confirm
+
+            if [ $confirm = "y" ]
+            then
+                echo $(sed '/'$name'/d' $tableMeta) > $tableMeta
+            fi
+
+        else
+            firMessage "Field does not exist"
+        fi
+    else
+        firMessage "Table $table does no exists in $db"
+        break
+    fi
+}
+
 ManageDbTableStructure(){
     clear
 
@@ -193,11 +225,43 @@ ManageDbTableStructure(){
 
             case $line in
                 1) createField $db $table ;;
-                2)
-                    echo "Enter Table Name"
-                    read -r tableName
-                    manageTable $dbName $tableName
-                ;;
+                2) dropField $db $table ;;
+                3) break ;;
+            esac
+        done
+
+    else
+        firMessage "Table Does Not Exists"
+    fi
+}
+
+
+ManageDbTableData(){
+    clear
+
+    db=$1
+    table=$2
+    tableData="$PWD/$db/$table.data"
+    tableMeta="$PWD/$db/$table.meta"
+
+    if [ -f $tableData ]
+    then
+        while true
+        do
+            clear
+            echo "$table Structure:"
+
+            echo "Total rows 0"
+
+            echo "1. Insert A Row"
+            echo "2. Delete A Row"
+            echo "3. Back"
+
+            read -r line
+
+            case $line in
+                1) createField $db $table ;;
+                2) dropField $db $table ;;
                 3) break ;;
             esac
         done
@@ -226,6 +290,7 @@ manageTable(){
             read -r line
 
             case $line in
+                1) ManageDbTableData $db $table ;;
                 2) ManageDbTableStructure $db $table ;;
                 3) dropTable $db $table ;;
                 4) break ;;
