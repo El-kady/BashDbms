@@ -115,6 +115,98 @@ dropTable(){
     fi
 }
 
+createField(){
+    clear
+
+    db=$1
+    table=$2
+    tableData="$PWD/$db/$table.data"
+    tableMeta="$PWD/$db/$table.meta"
+
+    echo "Enter Field Name :"
+    read -r name
+
+    if [ -f $tableMeta ]
+    then
+        if cat $tableMeta | grep $name
+        then
+            firMessage "Field already exists"
+        else
+                echo "Enter Field Type (number/string) :"
+                read -r type
+
+                if [ $type = "number" -o  $type = "string" ]
+                then
+                    echo "$name:$type" >> $tableMeta
+                else
+                    firMessage "Not supported datatype"
+                fi
+        fi
+    else
+        firMessage "Table $table does no exists in $db"
+        break
+    fi
+}
+
+ManageDbTableStructure(){
+    clear
+
+    db=$1
+    table=$2
+    tableData="$PWD/$db/$table.data"
+    tableMeta="$PWD/$db/$table.meta"
+
+    if [ -f $tableData ]
+    then
+        while true
+        do
+            clear
+            echo "$table Structure:"
+
+            echo "------"
+                i=0
+                for field in `awk -F: '{print $0}' ${tableMeta}`
+                do
+
+                    fieldName=$(echo $field | cut -d: -f1)
+                    fieldType=$(echo $field | cut -d: -f2)
+                    primaryKey=""
+
+                    if [ $i -eq 0 ]
+                    then
+                        primaryKey="Primary Key"
+                    fi
+
+                    echo "- $fieldName [$fieldType] $primaryKey"
+
+                    ((i=i+1))
+
+                done
+
+            echo "------"
+
+            echo "1. Create A Field"
+            echo "2. Drop A Field"
+            echo "3. Back"
+
+            read -r line
+
+            case $line in
+                1) createField $db $table ;;
+                2)
+                    echo "Enter Table Name"
+                    read -r tableName
+                    manageTable $dbName $tableName
+                ;;
+                3) break ;;
+            esac
+        done
+
+    else
+        firMessage "Table Does Not Exists"
+    fi
+}
+
 manageTable(){
     clear
     db=$1
@@ -134,8 +226,8 @@ manageTable(){
             read -r line
 
             case $line in
-                1) ManageDbTables $name ;;
-                3) dropTable $db $table;;
+                2) ManageDbTableStructure $db $table ;;
+                3) dropTable $db $table ;;
                 4) break ;;
             esac
         done
