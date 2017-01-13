@@ -328,6 +328,8 @@ browseRows(){
     then
         # -v columns passes the bash variable $columnsNames to awk.
         awk -v columns="$columnsNames" -F: 'BEGIN{split(columns, a, " ")} {for (i in a) { printf "%s : %s \n", toupper(a[i]),$i;} printf  "---------\n";}' $tableData
+
+        echo "Press any key to go back"
         read
     else
         firMessage "Table Does Not Exists"
@@ -452,7 +454,7 @@ manageDbTables(){
 firMessage(){
     clear
     echo $1
-    echo "Press any key to back"
+    echo "Press any key to go back"
     read confirm
 }
 
@@ -478,6 +480,14 @@ while true
 do
     clear
     echo "Choose:"
+
+    echo "------"
+        for database in `ls databases`
+        do
+            echo "- $database"
+        done
+    echo "------"
+
     echo "1. Create A New Database"
     echo "2. Manage A Database"
     echo "6. Exit"
@@ -486,7 +496,11 @@ do
 
     case $line in
         1) createDb ;;
-        2) manageDb ;;
+        2)
+            echo "Enter Database Name: "
+            read name
+            manageDb $name
+        ;;
         6) exit 1 ;;
         *)
             echo Choise
