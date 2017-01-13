@@ -5,12 +5,12 @@ createDb(){
     clear
     echo "Database Name ?: "
     read name
-    dbpath=$PWD/$name
+    dbpath=$PWD/databases/$name
     if [ -d $dbpath ]
     then
         firMessage "The Database Already Exists"
     else
-        if mkdir $dbpath
+        if mkdir -p $dbpath
         then
             manageDb $name
         else
@@ -21,7 +21,7 @@ createDb(){
 
 dropDb(){
     clear
-    db=$PWD/$1;
+    db=$PWD/databases/$1;
     echo "Drop $1 Database? (y/n)"
     read confirm
     if [ $confirm = "y" ]
@@ -46,7 +46,7 @@ manageDb(){
         read name
     fi
 
-    dbpath=$PWD/$name
+    dbpath=$PWD/databases/$name
     if [ -d $dbpath ]
     then
         while true
@@ -77,8 +77,8 @@ createTable(){
     read name
     dbname=$1
 
-    tableDataPath="$PWD/$dbname/$name.data"
-    tableMetaPath="$PWD/$dbname/$name.meta"
+    tableDataPath="$PWD/databases/$dbname/$name.data"
+    tableMetaPath="$PWD/databases/$dbname/$name.meta"
 
     if [ -f $tableDataPath ]
     then
@@ -97,8 +97,8 @@ dropTable(){
     dbName=$1;
     tableName=$2
 
-    tableDataPath="$PWD/$dbName/$tableName.data"
-    tableMetaPath="$PWD/$dbName/$tableName.meta"
+    tableDataPath="$PWD/databases/$dbName/$tableName.data"
+    tableMetaPath="$PWD/databases/$dbName/$tableName.meta"
 
     echo "Drop $tableName from $dbName? (y/n)"
     read confirm
@@ -120,8 +120,8 @@ createField(){
 
     db=$1
     table=$2
-    tableData="$PWD/$db/$table.data"
-    tableMeta="$PWD/$db/$table.meta"
+    tableData="$PWD/databases/$db/$table.data"
+    tableMeta="$PWD/databases/$db/$table.meta"
 
     echo "Enter Field Name :"
     read -r name
@@ -132,15 +132,30 @@ createField(){
         then
             firMessage "Field already exists"
         else
+                fieldData=$name
                 echo "Enter Field Type (number/string) :"
                 read -r type
 
                 if [ $type = "number" -o  $type = "string" ]
                 then
-                    echo "$name:$type" >> $tableMeta
+                    fieldData+=":$type"
                 else
                     firMessage "Not supported datatype"
                 fi
+
+                if ! cat $tableMeta | grep "primary"
+                then
+                    echo "Set as primary key? (y/n) :"
+                    read confirm
+
+                    if [ $confirm = "y" ]
+                    then
+                        fieldData+=":primary"
+                    fi
+                fi
+
+                echo $fieldData >> $tableMeta
+
         fi
     else
         firMessage "Table $table does no exists in $db"
@@ -152,8 +167,8 @@ dropField(){
 
     db=$1
     table=$2
-    tableData="$PWD/$db/$table.data"
-    tableMeta="$PWD/$db/$table.meta"
+    tableData="$PWD/databases/$db/$table.data"
+    tableMeta="$PWD/databases/$db/$table.meta"
 
     echo "Enter Field Name :"
     read -r name
@@ -185,8 +200,8 @@ ManageDbTableStructure(){
 
     db=$1
     table=$2
-    tableData="$PWD/$db/$table.data"
-    tableMeta="$PWD/$db/$table.meta"
+    tableData="$PWD/databases/$db/$table.data"
+    tableMeta="$PWD/databases/$db/$table.meta"
 
     if [ -f $tableData ]
     then
@@ -196,20 +211,22 @@ ManageDbTableStructure(){
             echo "$table Structure:"
 
             echo "------"
-                i=0
+                i=1
                 for field in `awk -F: '{print $0}' ${tableMeta}`
                 do
 
                     fieldName=$(echo $field | cut -d: -f1)
                     fieldType=$(echo $field | cut -d: -f2)
-                    primaryKey=""
+                    isPrimary=$(echo $field | cut -d: -f3)
 
-                    if [ $i -eq 0 ]
+                    fieldData="- $i $fieldName [$fieldType]"
+
+                    if [ $isPrimary ]
                     then
-                        primaryKey="Primary Key"
+                        fieldData+=" Primary Key"
                     fi
 
-                    echo "- $fieldName [$fieldType] $primaryKey"
+                    echo $fieldData
 
                     ((i=i+1))
 
@@ -235,34 +252,119 @@ ManageDbTableStructure(){
     fi
 }
 
+insertRow(){
+    clear
+
+    db=$1
+    table=$2
+    tableData="$PWD/databases/$db/$table.data"
+    tableMeta="$PWD/databases/$db/$table.meta"
+
+    if [ -f $tableData ]
+    then
+        record=""
+        cols=$(awk -F: '{print $0}' $tableMeta)
+        colsNum=$(cat $tableMeta | wc -l)
+
+        i=0
+        for col in $cols
+        do
+            colName=$(echo $col | cut -d':' -f 1)
+            colType=$(echo $col | cut -d':' -f 2)
+            isPrimary=$(echo $col | cut -d: -f3)
+
+            echo "$colName: "
+            read value
+
+            if [ $colType = "number" ]
+            then
+                validateNumber $value
+            elif [ $colType = "string" ]
+            then
+                validateString $value
+            fi
+
+            #use just [ ] because if it will be null if no primary field
+            if [ $isPrimary ]
+            then
+                #get column index to get all column values to check if it is unique or not
+                ((primaryIndex=$i+1))
+                #using -v to assign value in awk context, to get list of all values of unique conlumn
+                if awk -v x=$primaryIndex -F: '{print $x}' $tableData | grep -w $value
+                then
+                    firMessage "$colName must be unique"
+                    break
+                fi
+            fi
+
+            record+=$value:
+            ((i=$i+1))
+        done
+
+        if [ $i -eq $colsNum ]
+        then
+            echo $record >> $tableData
+        fi
+
+    else
+        firMessage "Table Does Not Exists"
+    fi
+}
+
+
+browseRows(){
+    clear
+
+    db=$1
+    table=$2
+    column=$3
+
+    tableData="$PWD/databases/$db/$table.data"
+    tableMeta="$PWD/databases/$db/$table.meta"
+
+    columnsNames=$(awk -F: '{print $1}' $tableMeta)
+
+    if [ -f $tableData ]
+    then
+        # -v columns passes the bash variable $columnsNames to awk.
+        awk -v columns="$columnsNames" -F: 'BEGIN{split(columns, a, " ")} {for (i in a) { printf "%s : %s \n", toupper(a[i]),$i;} printf  "---------\n";}' $tableData
+        read
+    else
+        firMessage "Table Does Not Exists"
+    fi
+}
 
 ManageDbTableData(){
     clear
 
     db=$1
     table=$2
-    tableData="$PWD/$db/$table.data"
-    tableMeta="$PWD/$db/$table.meta"
+    tableData="$PWD/databases/$db/$table.data"
+    tableMeta="$PWD/databases/$db/$table.meta"
 
     if [ -f $tableData ]
     then
         while true
         do
             clear
-            echo "$table Structure:"
+            echo "$table Data:"
 
-            echo "Total rows 0"
+            recordsCount=$(cat $tableData | wc -l)
+            echo "Total Rows: $recordsCount"
 
-            echo "1. Insert A Row"
-            echo "2. Delete A Row"
-            echo "3. Back"
+            echo "1. Browse All"
+            echo "2. Browse By Column"
+            echo "3. Insert A Row"
+            echo "4. Delete A Row"
+            echo "5. Back"
 
             read -r line
 
             case $line in
-                1) createField $db $table ;;
-                2) dropField $db $table ;;
-                3) break ;;
+                1) browseRows $db $table ;;
+                3) insertRow $db $table ;;
+                4) deleteRow $db $table ;;
+                5) break ;;
             esac
         done
 
@@ -275,7 +377,7 @@ manageTable(){
     clear
     db=$1
     table=$2
-    tableData="$PWD/$db/$table.data"
+    tableData="$PWD/databases/$db/$table.data"
     if [ -f $tableData ]
     then
         while true
@@ -309,7 +411,7 @@ manageDbTables(){
         echo "Database Name ?: "
         read dbName
     fi
-    dbpath=$PWD/$dbName
+    dbpath=$PWD/databases/$dbName
     if [ -d $dbpath ]
     then
         while true
@@ -352,6 +454,24 @@ firMessage(){
     echo $1
     echo "Press any key to back"
     read confirm
+}
+
+validateNumber(){
+    clear
+    if [[ ! $1 =~ ^-?[0-9]+$ ]]
+    then
+        firMessage "Please Enter A Valid Number"
+        break
+    fi
+}
+
+validateString(){
+    clear
+    if [[ ! $1 =~ ^-?[a-zA-Z0-9]+$ ]]
+    then
+        firMessage "Please Enter A Valid String a-zA-Z0-9"
+        break
+    fi
 }
 
 while true
