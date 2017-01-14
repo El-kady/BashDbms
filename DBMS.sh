@@ -406,8 +406,66 @@ searchRows(){
     fi
 }
 
-deleteRow(){
-    echo "delete"
+deleteRows(){
+    db=$1
+    table=$2
+    tableData="$PWD/databases/$db/$table.data"
+    tableDataTmp="$PWD/databases/$db/$table.tmp"
+    tableMeta="$PWD/databases/$db/$table.meta"
+
+    if [ -f $tableData ]
+    then
+        columnsNames=$(awk -F: '{print $1}' $tableMeta)
+        question="Delete using ("
+            i=0
+            for col in $columnsNames
+            do
+                if [ $i -gt 0 ]
+                then
+                    question+="/"
+                fi
+                question+="$col"
+                ((i=$i+1))
+            done
+        question+=") ?"
+        echo $question;
+
+        read deleteCol
+
+        if [[ $(awk -F: '{print $1}' $tableMeta | grep -w $deleteCol) ]]
+        then
+            i=1
+            columnIndex=0
+            for col in $columnsNames
+            do
+
+                if [ $col = $deleteCol ]
+                then
+                    columnIndex=$i
+                fi
+                ((i=$i+1))
+            done
+
+            echo "Delete from $table where $deleteCol equals ?"
+            read deleteQuery
+
+            clear
+            awk -v columns="$columnsNames" -v columnIndex="$columnIndex" -v query="$deleteQuery" -F: '
+            BEGIN{split(columns, a, " ")}
+            {
+                if ($columnIndex != query){
+                    printf "%s\n",$0;
+                }
+            }
+            ' $tableData > $tableDataTmp && mv $tableDataTmp $tableData
+
+            firMessage "Data has been deleted"
+        else
+            firMessage "Column Does Not Exists"
+        fi
+    else
+        firMessage "Table Does Not Exists"
+    fi
 }
 
 ManageDbTableData(){
@@ -440,7 +498,7 @@ ManageDbTableData(){
                 1) browseRows $db $table ;;
                 2) searchRows $db $table ;;
                 3) insertRow $db $table ;;
-                4) deleteRow $db $table ;;
+                4) deleteRows $db $table ;;
                 5) break ;;
             esac
         done
