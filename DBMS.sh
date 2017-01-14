@@ -468,6 +468,102 @@ deleteRows(){
     fi
 }
 
+updateRows(){
+    db=$1
+    table=$2
+    tableData="$PWD/databases/$db/$table.data"
+    tableDataTmp="$PWD/databases/$db/$table.tmp"
+    tableMeta="$PWD/databases/$db/$table.meta"
+
+    if [ -f $tableData ]
+    then
+        columnsNames=$(awk -F: '{print $1}' $tableMeta)
+        question="Update rows using ("
+            i=0
+            for col in $columnsNames
+            do
+                if [ $i -gt 0 ]
+                then
+                    question+="/"
+                fi
+                question+="$col"
+                ((i=$i+1))
+            done
+        question+=") ?"
+        echo $question;
+
+        read updateCol
+
+        if [[ $(awk -F: '{print $1}' $tableMeta | grep -w $updateCol) ]]
+        then
+            i=1
+            columnIndex=0
+            for col in $columnsNames
+            do
+
+                if [ $col = $updateCol ]
+                then
+                    columnIndex=$i
+                fi
+                ((i=$i+1))
+            done
+
+            echo "Update from $table where $updateCol equals ?"
+            read updateQuery
+
+            record=""
+            cols=$(awk -F: '{print $0}' $tableMeta)
+            colsNum=$(cat $tableMeta | wc -l)
+
+            i=0
+            for col in $cols
+            do
+                colName=$(echo $col | cut -d':' -f 1)
+                colType=$(echo $col | cut -d':' -f 2)
+                isPrimary=$(echo $col | cut -d: -f3)
+
+                if [ ! $isPrimary ]
+                then
+                    echo "New Value for $colName: "
+                    read value
+
+                    if [ $colType = "number" ]
+                    then
+                        validateNumber $value "break"
+                    elif [ $colType = "string" ]
+                    then
+                        validateString $value "break"
+                    fi
+                    record+=$value:
+                fi
+                ((i=$i+1))
+            done
+
+            if [ $i -eq $colsNum ]
+            then
+
+                awk -v columns="$columnsNames" -v columnIndex="$columnIndex" -v query="$updateQuery" -v newRow="$record" -F: '
+                BEGIN{split(columns, a, " ")}
+                {
+                    if ($columnIndex == query){
+                        printf "%s:%s\n",$1,newRow;
+                    }else{
+                        printf "%s\n",$0;
+                    }
+                }
+                ' $tableData > $tableDataTmp && mv $tableDataTmp $tableData
+
+                firMessage "Data has been updated"
+
+            fi
+        else
+            firMessage "Column Does Not Exists"
+        fi
+    else
+        firMessage "Table Does Not Exists"
+    fi
+}
+
 ManageDbTableData(){
     clear
 
@@ -490,7 +586,8 @@ ManageDbTableData(){
             echo "2. Search"
             echo "3. Insert A Row"
             echo "4. Delete A Row"
-            echo "5. Back"
+            echo "5. Update A Row"
+            echo "6. Back"
 
             read -r line
 
@@ -499,7 +596,8 @@ ManageDbTableData(){
                 2) searchRows $db $table ;;
                 3) insertRow $db $table ;;
                 4) deleteRows $db $table ;;
-                5) break ;;
+                5) updateRows $db $table;;
+                6) break ;;
             esac
         done
 
