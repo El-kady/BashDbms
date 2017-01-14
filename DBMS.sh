@@ -5,6 +5,7 @@ createDb(){
     clear
     echo "Database Name ?: "
     read name
+    validateString $name
     dbpath=$PWD/databases/$name
     if [ -d $dbpath ]
     then
@@ -73,21 +74,24 @@ manageDb(){
 
 createTable(){
     clear
-    echo "Table Name :"
-    read name
+
     dbname=$1
 
-    tableDataPath="$PWD/databases/$dbname/$name.data"
-    tableMetaPath="$PWD/databases/$dbname/$name.meta"
+    echo "Table Name :"
+    read tableName
+    validateString $tableName
+
+    tableDataPath="$PWD/databases/$dbname/$tableName.data"
+    tableMetaPath="$PWD/databases/$dbname/$tableName.meta"
 
     if [ -f $tableDataPath ]
     then
-        firMessage "Table $name Already Exists in $dbname"
+        firMessage "Table $tableName Already Exists in $dbname"
         break
     else
         if touch $tableDataPath && touch $tableMetaPath
         then
-            manageTable $dbname $name
+            manageTable $dbname $tableName
         fi
     fi
 }
@@ -125,6 +129,7 @@ createField(){
 
     echo "Enter Field Name :"
     read -r name
+    validateString $name
 
     if [ -f $tableMeta ]
     then
@@ -278,10 +283,10 @@ insertRow(){
 
             if [ $colType = "number" ]
             then
-                validateNumber $value
+                validateNumber $value "break"
             elif [ $colType = "string" ]
             then
-                validateString $value
+                validateString $value "break"
             fi
 
             #use just [ ] because if it will be null if no primary field
@@ -336,6 +341,75 @@ browseRows(){
     fi
 }
 
+searchRows(){
+    db=$1
+    table=$2
+    tableData="$PWD/databases/$db/$table.data"
+    tableMeta="$PWD/databases/$db/$table.meta"
+
+    if [ -f $tableData ]
+    then
+        columnsNames=$(awk -F: '{print $1}' $tableMeta)
+        question="Search using ("
+            i=0
+            for col in $columnsNames
+            do
+                if [ $i -gt 0 ]
+                then
+                    question+="/"
+                fi
+                question+="$col"
+                ((i=$i+1))
+            done
+        question+=") ?"
+        echo $question;
+
+        read searchCol
+
+        if [[ $(awk -F: '{print $1}' $tableMeta | grep -w $searchCol) ]]
+        then
+            i=1
+            columnIndex=0
+            for col in $columnsNames
+            do
+
+                if [ $col = $searchCol ]
+                then
+                    columnIndex=$i
+                fi
+                ((i=$i+1))
+            done
+
+            echo "Search for ?"
+            read searchQuery
+
+            clear
+            awk -v columns="$columnsNames" -v columnIndex="$columnIndex" -v query="$searchQuery" -F: '
+            BEGIN{split(columns, a, " ")}
+            {
+                if ($columnIndex == query){
+                    for (i in a) {
+                        printf "%s : %s \n", toupper(a[i]),$i;
+                    }
+                    printf  "---------\n";
+                }
+            }
+            ' $tableData
+
+            echo "Press any key to go back"
+            read
+        else
+            firMessage "Column Does Not Exists"
+        fi
+    else
+        firMessage "Table Does Not Exists"
+    fi
+}
+
+deleteRow(){
+    echo "delete"
+}
+
 ManageDbTableData(){
     clear
 
@@ -354,8 +428,8 @@ ManageDbTableData(){
             recordsCount=$(cat $tableData | wc -l)
             echo "Total Rows: $recordsCount"
 
-            echo "1. Browse All"
-            echo "2. Browse By Column"
+            echo "1. Display All"
+            echo "2. Search"
             echo "3. Insert A Row"
             echo "4. Delete A Row"
             echo "5. Back"
@@ -364,6 +438,7 @@ ManageDbTableData(){
 
             case $line in
                 1) browseRows $db $table ;;
+                2) searchRows $db $table ;;
                 3) insertRow $db $table ;;
                 4) deleteRow $db $table ;;
                 5) break ;;
@@ -463,7 +538,12 @@ validateNumber(){
     if [[ ! $1 =~ ^-?[0-9]+$ ]]
     then
         firMessage "Please Enter A Valid Number"
-        break
+        if [ $2 = "break" ]
+        then
+            break
+        else
+            continue
+        fi
     fi
 }
 
@@ -472,14 +552,19 @@ validateString(){
     if [[ ! $1 =~ ^-?[a-zA-Z0-9]+$ ]]
     then
         firMessage "Please Enter A Valid String a-zA-Z0-9"
-        break
+        if [ $2 = "break" ]
+        then
+            break
+        else
+            continue
+        fi
     fi
 }
 
 while true
 do
     clear
-    echo "Choose:"
+    echo "Database:"
 
     echo "------"
         for database in `ls databases`
